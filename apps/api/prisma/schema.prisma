@@ -1,0 +1,349 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MEDICO
+  FINANCEIRO
+  ATENDENTE
+}
+
+enum AppointmentType {
+  CONSULTA
+  RETORNO
+}
+
+enum AppointmentStatus {
+  AGENDADO
+  CONFIRMADO
+  CANCELADO
+  NO_SHOW
+  CONCLUIDO
+}
+
+enum ExamStatus {
+  SOLICITADO
+  REALIZADO
+  ENTREGUE
+}
+
+enum FinancialType {
+  RECEITA
+  DESPESA
+}
+
+enum PaymentMethod {
+  DINHEIRO
+  PIX
+  CARTAO
+  CONVENIO
+}
+
+enum MessageDirection {
+  INBOUND
+  OUTBOUND
+}
+
+enum NotificationType {
+  AGENDAMENTO
+  LEMBRETE
+  RETORNO
+}
+
+enum NotificationStatus {
+  ENVIADO
+  ENTREGUE
+  CONFIRMADO
+  CANCELADO
+}
+
+enum AssetCategory {
+  EQUIPAMENTO_MEDICO
+  MOBILIARIO
+  OUTRO
+}
+
+enum AssetStatus {
+  ATIVO
+  EM_MANUTENCAO
+  INATIVO
+  BAIXADO
+}
+
+enum MaintenanceType {
+  PREVENTIVA
+  CORRETIVA
+}
+
+model Clinic {
+  id        String   @id @default(uuid())
+  name      String
+  cnpj      String   @unique
+  slug      String   @unique
+  phone     String?
+  email     String?
+  address   String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users        User[]
+  doctors      Doctor[]
+  patients     Patient[]
+  appointments Appointment[]
+  financials   Financial[]
+  exams        Exam[]
+  rooms        Room[]
+  assets       Asset[]
+  messages     WhatsAppMessage[]
+
+  @@map("clinics")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      Role
+  clinicId  String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic        Clinic?        @relation(fields: [clinicId], references: [id])
+  doctor        Doctor?
+  refreshTokens RefreshToken[]
+
+  @@map("users")
+}
+
+model RefreshToken {
+  id        String   @id @default(uuid())
+  token     String   @unique @db.VarChar(512)
+  userId    String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("refresh_tokens")
+}
+
+model Doctor {
+  id        String @id @default(uuid())
+  userId    String @unique
+  clinicId  String
+  crm       String
+  specialty String
+
+  user         User             @relation(fields: [userId], references: [id])
+  clinic       Clinic           @relation(fields: [clinicId], references: [id])
+  schedules    DoctorSchedule[]
+  appointments Appointment[]
+  assets       Asset[]
+
+  @@map("doctors")
+}
+
+model DoctorSchedule {
+  id          String @id @default(uuid())
+  doctorId    String
+  dayOfWeek   Int
+  startTime   String
+  endTime     String
+  slotMinutes Int    @default(30)
+
+  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@map("doctor_schedules")
+}
+
+model Patient {
+  id        String   @id @default(uuid())
+  clinicId  String
+  name      String
+  cpf       String
+  birthDate DateTime
+  phone     String
+  email     String?
+  address   String?
+  notes     String?  @db.Text
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clinic       Clinic            @relation(fields: [clinicId], references: [id])
+  appointments Appointment[]
+  exams        Exam[]
+  messages     WhatsAppMessage[]
+
+  @@unique([cpf, clinicId])
+  @@map("patients")
+}
+
+model Appointment {
+  id          String            @id @default(uuid())
+  clinicId    String
+  patientId   String
+  doctorId    String
+  date        DateTime
+  type        AppointmentType   @default(CONSULTA)
+  status      AppointmentStatus @default(AGENDADO)
+  notes       String?           @db.Text
+  returnDate  DateTime?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  clinic        Clinic         @relation(fields: [clinicId], references: [id])
+  patient       Patient        @relation(fields: [patientId], references: [id])
+  doctor        Doctor         @relation(fields: [doctorId], references: [id])
+  financial     Financial?
+  exams         Exam[]
+  notifications Notification[]
+
+  @@map("appointments")
+}
+
+model Exam {
+  id            String     @id @default(uuid())
+  clinicId      String
+  patientId     String
+  appointmentId String?
+  type          String
+  status        ExamStatus @default(SOLICITADO)
+  fileUrl       String?
+  requestedAt   DateTime   @default(now())
+  deliveredAt   DateTime?
+
+  clinic      Clinic       @relation(fields: [clinicId], references: [id])
+  patient     Patient      @relation(fields: [patientId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@map("exams")
+}
+
+model Financial {
+  id            String        @id @default(uuid())
+  clinicId      String
+  appointmentId String?       @unique
+  type          FinancialType
+  amount        Decimal       @db.Decimal(10, 2)
+  paymentMethod PaymentMethod
+  description   String?
+  paidAt        DateTime?
+  createdAt     DateTime      @default(now())
+
+  clinic      Clinic       @relation(fields: [clinicId], references: [id])
+  appointment Appointment? @relation(fields: [appointmentId], references: [id])
+
+  @@map("financials")
+}
+
+model WhatsAppMessage {
+  id        String           @id @default(uuid())
+  clinicId  String
+  patientId String?
+  phone     String
+  direction MessageDirection
+  content   String           @db.Text
+  mediaUrl  String?
+  read      Boolean          @default(false)
+  sentAt    DateTime         @default(now())
+
+  clinic  Clinic   @relation(fields: [clinicId], references: [id])
+  patient Patient? @relation(fields: [patientId], references: [id])
+
+  @@map("whatsapp_messages")
+}
+
+model Notification {
+  id            String             @id @default(uuid())
+  appointmentId String
+  type          NotificationType
+  channel       String             @default("whatsapp")
+  status        NotificationStatus @default(ENVIADO)
+  sentAt        DateTime?
+  respondedAt   DateTime?
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id])
+
+  @@map("notifications")
+}
+
+model Room {
+  id          String  @id @default(uuid())
+  clinicId    String
+  name        String
+  description String?
+
+  clinic Clinic  @relation(fields: [clinicId], references: [id])
+  assets Asset[]
+
+  @@map("rooms")
+}
+
+model Asset {
+  id                  String        @id @default(uuid())
+  clinicId            String
+  roomId              String?
+  responsibleDoctorId String?
+  name                String
+  category            AssetCategory
+  brand               String?
+  model               String?
+  serialNumber        String?
+  acquisitionDate     DateTime
+  acquisitionValue    Decimal       @db.Decimal(10, 2)
+  currentValue        Decimal       @db.Decimal(10, 2)
+  depreciationRate    Decimal       @db.Decimal(5, 2)
+  status              AssetStatus   @default(ATIVO)
+  notes               String?       @db.Text
+  photoUrl            String?
+
+  clinic            Clinic              @relation(fields: [clinicId], references: [id])
+  room              Room?               @relation(fields: [roomId], references: [id])
+  responsibleDoctor Doctor?             @relation(fields: [responsibleDoctorId], references: [id])
+  maintenances      AssetMaintenance[]
+  depreciations     AssetDepreciation[]
+
+  @@map("assets")
+}
+
+model AssetMaintenance {
+  id          String          @id @default(uuid())
+  assetId     String
+  type        MaintenanceType
+  description String          @db.Text
+  cost        Decimal?        @db.Decimal(10, 2)
+  supplier    String?
+  performedAt DateTime
+  nextDueAt   DateTime?
+  createdAt   DateTime        @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("asset_maintenances")
+}
+
+model AssetDepreciation {
+  id                 String   @id @default(uuid())
+  assetId            String
+  year               Int
+  month              Int
+  valueBefore        Decimal  @db.Decimal(10, 2)
+  depreciationAmount Decimal  @db.Decimal(10, 2)
+  valueAfter         Decimal  @db.Decimal(10, 2)
+  calculatedAt       DateTime @default(now())
+
+  asset Asset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+
+  @@map("asset_depreciations")
+}

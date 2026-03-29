@@ -1,0 +1,22 @@
+{
+  "name": "clinicflow",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:api": "npm --prefix apps/api run dev",
+    "dev:web": "npm --prefix apps/web run dev",
+    "build:api": "npm --prefix apps/api run build",
+    "build:web": "npm --prefix apps/web run build",
+    "install:all": "npm --prefix apps/api install && npm --prefix apps/web install",
+    "db:migrate": "npm --prefix apps/api run db:migrate",
+    "db:generate": "npm --prefix apps/api run db:generate",
+    "db:seed": "npm --prefix apps/api run db:seed"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "npm": ">=10.0.0"
+  }
+}

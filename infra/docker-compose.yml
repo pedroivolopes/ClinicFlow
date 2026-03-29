@@ -1,0 +1,90 @@
+version: '3.9'
+
+# ══════════════════════════════════════════
+# ClinicFlow — Docker Compose
+# MySQL:    EXTERNO — 192.168.10.141:3306
+# N8N:      EXTERNO — 192.168.10.141
+# Evolution:EXTERNO — 192.168.10.140
+# ══════════════════════════════════════════
+
+services:
+
+  redis:
+    image: redis:7-alpine
+    container_name: clinicflow_redis
+    restart: always
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    networks:
+      - clinicflow_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: clinicflow_minio
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    networks:
+      - clinicflow_net
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+    container_name: clinicflow_api
+    restart: always
+    env_file:
+      - ../apps/api/.env
+    ports:
+      - "3333:3333"
+    depends_on:
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    networks:
+      - clinicflow_net
+
+  web:
+    build:
+      context: ../apps/web
+      dockerfile: Dockerfile
+    container_name: clinicflow_web
+    restart: always
+    environment:
+      NEXT_PUBLIC_API_URL: ${API_URL}
+      NEXT_PUBLIC_SOCKET_URL: ${SOCKET_URL}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - api
+    networks:
+      - clinicflow_net
+
+volumes:
+  redis_data:
+  minio_data:
+
+networks:
+  clinicflow_net:
+    driver: bridge

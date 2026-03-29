@@ -1,0 +1,47 @@
+# ── Dependências ──────────────────────────────────────
+node_modules/
+
+# ── Build ─────────────────────────────────────────────
+dist/
+.next/
+build/
+out/
+
+# ── Ambiente — NUNCA commitar ──────────────────────────
+.env
+.env.local
+.env.production
+.env.development
+infra/.env.production
+infra/.env.development
+apps/api/.env
+apps/web/.env.local
+
+# ── Logs ──────────────────────────────────────────────
+*.log
+npm-debug.log*
+logs/
+
+# ── Cache ─────────────────────────────────────────────
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# ── OS ────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Editor ────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Prisma ────────────────────────────────────────────
+# migrations SÃO commitadas (controle de versão do banco)
+# apenas ignora o client gerado
+apps/api/node_modules/.prisma/
+
+# ── MinIO / uploads locais ─────────────────────────────
+uploads/
