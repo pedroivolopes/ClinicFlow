@@ -26,16 +26,17 @@ cd "$PROJECT_DIR"
 echo "📥 Atualizando código..."
 git pull origin main
 
-# ── Rodar migrations ───────────────────────────────────
-echo "🗄️  Rodando migrations..."
-cd apps/api
-npm install --omit=dev
-npx prisma migrate deploy
-cd "$PROJECT_DIR"
-
-# ── Build e subir containers ───────────────────────────
-echo "🐳 Fazendo build e subindo containers..."
+# ── Build containers ───────────────────────────────────
+echo "🐳 Fazendo build dos containers..."
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" build --no-cache
+
+# ── Rodar migrations dentro do container ───────────────
+echo "🗄️  Rodando migrations..."
+docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" run --rm api \
+  npx prisma migrate deploy
+
+# ── Subir todos os containers ──────────────────────────
+echo "🐳 Subindo containers..."
 docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d
 
 # ── Verificar saúde dos containers ────────────────────
